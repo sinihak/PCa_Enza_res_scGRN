@@ -422,9 +422,9 @@ def run_gsea(ranked_df, gene_sets="MSigDB_Hallmark_2020"):
                               n_permutations=5000)
     return gsea_result
 
-# ----------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------------
 # SOX4-linked resistance vs. ARS- and stress-linked sensitivity in mHSPC club-like and basal cells (Supplementary Fig. 3K) 
-# ----------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------------
 
 hspc = adata[adata.obs["type"] == "HSPC"]
 hspc_club_basal = hspc[hspc.obs["cell_type_refined"].isin(["basal", "club-like"])]
