@@ -10,7 +10,6 @@ from matplotlib import rcParams
 from networkx.algorithms.bipartite import biadjacency_matrix
 from networkx.drawing.nx_agraph import graphviz_layout
 import scanpy as sc
-from plot import plot_2D, plot_SEACell_sizes
 import matplotlib.pyplot as plt
 import pylab as pl
 import random

@@ -20,6 +20,47 @@ phase_palette = {
     'G2M': '#00FF7F'
 }
 
+def fetch_target_genes_for_groups(regulons, tf_groups):
+    """
+    Fetch unique target genes for specific groups of TFs.
+
+    Parameters:
+    tf_groups (dict): A dictionary where keys are group names and values are lists of TFs.
+    regulons (dict): A dictionary where keys are TFs and values are lists of target genes.
+
+    Returns:
+    dict: A dictionary where keys are group names and values are lists of unique target genes.
+    """
+    group_targets = {}
+
+    for group, tfs in tf_groups.items():
+        unique_targets = set()
+
+        for tf in tfs:
+            if tf in regulons:
+                # Directly add the target genes to the set
+                unique_targets.update(regulons[tf])
+
+        group_targets[group] = list(unique_targets)
+
+    return group_targets
+
+def save_regulons_to_csv(data, filename):
+    import csv
+    # Open a CSV file for writing
+    with open(filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+
+
+        # Write the header (either TF or group name)
+        if isinstance(list(data.keys())[0], str): # Check if the keys are strings (e.g., TFs or groups)
+            writer.writerow(['Group', 'Target Genes'])
+        # Write each TF and its corresponding target genes as a row
+        for key, target_genes in data.items():
+            # Convert the list of genes into a comma-separated string
+            target_genes_str = ','.join(target_genes)
+            writer.writerow([key, target_genes_str])
+
 
 def load_regulons_from_csv(filename):
     import csv

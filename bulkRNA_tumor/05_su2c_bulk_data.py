@@ -219,6 +219,46 @@ with PdfPages(pdf_path) as pdf:
         pdf.savefig(dpi=300)
         plt.close()
 
+# Basal Intercept                              7.884804e-02
+# AR_variant_ARV                         7.884804e-02
+# AR_activity                            2.130184e-01
+# Liu_PTEN_loss                          3.052274e-01
+# hallmark_wnt_beta_catenin_signaling    9.781201e-08
+# hallmark_pi3k_akt_mtor_signaling       7.458329e-01
+# ARS_stress_linked_sensitive            9.635256e-04
+# SOX4_associated_resistance             2.423160e-29
+# SOX4_regulon                           2.794857e-02
+# dtype: float64 0.5511130241486603
+# Luminal Intercept                              1.876348e-07
+# AR_variant_ARV                         1.876348e-07
+# AR_activity                            1.229480e-11
+# Liu_PTEN_loss                          1.737006e-05
+# hallmark_wnt_beta_catenin_signaling    5.037396e-01
+# hallmark_pi3k_akt_mtor_signaling       5.195346e-01
+# ARS_stress_linked_sensitive            1.266813e-14
+# SOX4_associated_resistance             3.983875e-01
+# SOX4_regulon                           6.173019e-01
+# dtype: float64 0.6246540124722302
+# NE_identity Intercept                              9.754044e-01
+# AR_variant_ARV                         9.754044e-01
+# AR_activity                            1.200127e-05
+# Liu_PTEN_loss                          3.066401e-01
+# hallmark_wnt_beta_catenin_signaling    9.091654e-01
+# hallmark_pi3k_akt_mtor_signaling       5.781716e-07
+# ARS_stress_linked_sensitive            1.171673e-01
+# SOX4_associated_resistance             1.103484e-02
+# SOX4_regulon                           1.943427e-06
+# dtype: float64 0.48488116317114205
+# Duct_luminal Intercept                              8.413916e-01
+# AR_variant_ARV                         8.413916e-01
+# AR_activity                            1.315881e-02
+# Liu_PTEN_loss                          2.934272e-01
+# hallmark_wnt_beta_catenin_signaling    1.250278e-01
+# hallmark_pi3k_akt_mtor_signaling       5.090266e-03
+# ARS_stress_linked_sensitive            6.992346e-06
+# SOX4_associated_resistance             1.508855e-10
+# SOX4_regulon                           4.478830e-01
+# dtype: float64 0.39279066537626905
 
 
 
@@ -235,7 +275,17 @@ vif_data["feature"] = X.columns
 vif_data["VIF"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
 print(vif_data)
 
-# VIFs are < 5 (~1-2), so the correlation is not too severe for corrective measures to be applied
+# >>> print(vif_data)
+#                                feature       VIF
+# 0                        Liu_PTEN_loss  1.427628
+# 1                          AR_activity  1.981743
+# 2                         SOX4_regulon  1.490904
+# 3          ARS_stress_linked_sensitive  2.053218
+# 4           SOX4_associated_resistance  1.576349
+# 5     hallmark_pi3k_akt_mtor_signaling  1.526443
+# 6  hallmark_wnt_beta_catenin_signaling  1.203589
+# 7                       AR_variant_ARV  2.079727
+# VIFs are < 5 (~1-2), so the correlation is not severe and we don't have to apply corrective measures
 
 
 # ---------------------------------------

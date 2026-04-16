@@ -8,7 +8,6 @@ import pickle
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind, mannwhitneyu, spearmanr
 import seaborn as sns
-import utils as ut
 import json
 import h5py
 import random
