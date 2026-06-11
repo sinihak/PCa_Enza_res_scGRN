@@ -33,7 +33,7 @@ gene_sets["ARS_stress_linked_sensitive"] = (pd.Series(gene_sets["ARS_stress_link
 )
 
 # Now remove overlaps for correlation analyses
-gs_subset = ["Basal", "Duct luminal","Luminal","NE_identity","AR_activity","Beltran_NEPC_UP","Beltran_NEPC_DOWN","hallmark_wnt_beta_catenin_signaling","AR_variant_ARV","hallmark_epithelial_mesenchymal_transition"]
+gs_subset = ["Basal", "Duct luminal","Luminal","NE_identity","AR_activity","Beltran_NEPC_UP","Beltran_NEPC_DOWN","hallmark_wnt_beta_catenin_signaling","AR_variant_ARV"]
 for gs in gs_subset:
     # remove SOX4 targets from the gene sets for correlation analysis
     gene_sets[gs] = list(set(gene_sets[gs]) - set(gene_sets["SOX4_regulon"]))
