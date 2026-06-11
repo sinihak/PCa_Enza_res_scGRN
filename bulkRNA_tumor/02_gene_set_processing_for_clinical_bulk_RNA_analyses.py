@@ -11,7 +11,7 @@ gene_sets = ut.load_gene_sets_excel(gs)
 
 
 keys_to_keep = ["ARS_stress_linked_sensitive","SOX4_linked_resistance","SOX4_regulon","Liu_PTEN_loss_UP","Liu_PTEN_loss_DOWN","hallmark_pi3k_akt_mtor_signaling","AR_activity","Basal", "Duct luminal","Luminal",
-"NE_identity","Beltran_NEPC_UP","Beltran_NEPC_DOWN","hallmark_wnt_beta_catenin_signaling","AR_variant_ARV","hallmark_epithelial_mesenchymal_transition"]
+"NE_identity","Beltran_NEPC_UP","Beltran_NEPC_DOWN","hallmark_wnt_beta_catenin_signaling","AR_variant_ARV"]
 
 gene_sets = {k: gene_sets[k] for k in keys_to_keep if k in gene_sets}
 
