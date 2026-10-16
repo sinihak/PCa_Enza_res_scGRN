@@ -71,7 +71,7 @@ datasets = ['su2c', 'labrecque']
 
 for dataset in datasets:
     df = pd.read_csv(f"{data_path}/bulkRNA_tumor/outputs/{dataset}_gsva_metadata.csv")
-    df['Beltran_NEPC'] = df['Beltran_NEPC_UP'] - abs(df['Beltran_NEPC_DOWN'])
+    df['Beltran_NEPC'] = df['Beltran_NEPC_UP'] - df['Beltran_NEPC_DOWN']
     filename = f"{data_path}/figures/{dataset}_corr_plots_SOX4_ARS.pdf"
     with PdfPages(filename) as pdf:
         for y in gs_y:

@@ -65,7 +65,7 @@ gsva_res_meta = pd.merge(gsva_res_df,pten_data, on="SAMPLE_ID", how="inner") #ke
 unaltered = [0]
 loss = [-1,-2]
 gsva_res_meta.loc[gsva_res_meta["PTEN_CN"].isin(loss), "PTEN_status"] = "pten_altered"
-gsva_res_meta.loc[gsva_res_meta["PTEN_CN"].isin(unaltered), "PTEN_status"] = "pten_unaltered"
+gsva_res_meta.loc[gsva_res_meta["PTEN_CN"].isin(unaltered), "PTEN_status"] = "no"
 
 gsva_res_meta["AR_activity"] = pd.to_numeric(gsva_res_meta["AR_activity"], errors="coerce")
 gsva_res_meta["AR_activity_quartile"] = pd.qcut(gsva_res_meta["AR_activity"], q=4, labels=["Q1", "Q2", "Q3","Q4"])
@@ -82,7 +82,7 @@ yax_vals = ["SOX4_regulon"]
 counts = gsva_res_meta.groupby(["AR_activity_quartile", "PTEN_status"]).size().reset_index(name="count")
 
 order=["Q4", "Q3", "Q2", "Q1"]
-colors={"pten_altered":"#923D0A","pten_unaltered":"#CC7A30"}
+colors={"pten_altered":"#923D0A","no":"#CC7A30"}
 sns.set_style("ticks")
 
 
@@ -192,7 +192,7 @@ for q in quartiles:
         subset = gsva_res_meta[gsva_res_meta["AR_activity_quartile"] == q]
         # Separate PTEN status groups
         altered = subset[subset["PTEN_status"] == "pten_altered"][yax]
-        unaltered = subset[subset["PTEN_status"] == "pten_unaltered"][yax]
+        unaltered = subset[subset["PTEN_status"] == "no"][yax]
         altered = pd.to_numeric(altered, errors="coerce")
         unaltered = pd.to_numeric(unaltered, errors="coerce")
         stat, p = mannwhitneyu(altered, unaltered, alternative="two-sided")
@@ -200,13 +200,13 @@ for q in quartiles:
             "gene_set": yax,
             "quartile": q,
             "pten_altered_mean": altered.mean(),
-            "pten_unaltered_mean": unaltered.mean(),
+            "no_mean": unaltered.mean(),
             "p_value": p
         })
 
 results_df = pd.DataFrame(results)
 print(results_df)
-#                       gene_set quartile  pten_altered_mean  pten_unaltered_mean   p_value
+#                       gene_set quartile  pten_altered_mean  no_mean   p_value
 # 0                 SOX4_regulon       Q1           0.104679             0.035417  0.121257
 # 1  ARS_stress_linked_sensitive       Q1          -0.118126            -0.202044  0.000325
 # 2                 SOX4_regulon       Q2           0.118046            -0.040279  0.002857
@@ -217,7 +217,6 @@ print(results_df)
 # 7  ARS_stress_linked_sensitive       Q4           0.124050             0.154662  0.115591
 
 gsva_res_meta.to_csv(f"{datadir}/bulkRNA_tissue/outputs/tcga_gsva_metadata.csv")
-
 
 
 # ----------------------------------------------------
@@ -239,13 +238,13 @@ with PdfPages(f"{datadir}/bulkRNA_tissue/figures/tcga_gsva_violinplots.pdf") as 
             linecolor="#2c1440",
             fill=True,
             split=True,
-            palette={"pten_altered": "#D2042D", "pten_unaltered":"#0096FF"},
+            palette={"pten_altered": "#D2042D", "no":"#0096FF"},
             zorder=1,
             scale="width",
             )
         gsva_res_meta[key] = pd.to_numeric(gsva_res_meta[key], errors="coerce")
         altered_vals = gsva_res_meta.loc[gsva_res_meta["PTEN_status"]=="pten_altered", key]
-        unaltered_vals = gsva_res_meta.loc[gsva_res_meta["PTEN_status"]=="pten_unaltered", key]
+        unaltered_vals = gsva_res_meta.loc[gsva_res_meta["PTEN_status"]=="no", key]
         # Compute mann-whitney
         stat, pval = mannwhitneyu(altered_vals, unaltered_vals, alternative="two-sided")
         # Annotate p-value above plot

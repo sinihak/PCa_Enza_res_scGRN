@@ -35,11 +35,6 @@ with open(f"{datadir}/data/processed_gene_sets.json", "r") as fp:
 # log transform for
 su2c = np.log2(su2c + 1)
 
-# save the Z score matrix for further analyses
-su2c_z = zscore(su2c, axis=1)
-
-su2c_z.to_csv(f"{datadir}outputs/su2c_z_score_counts.csv")
-
 
 #################################
 ######### GSVA Analysis ######### 
@@ -57,7 +52,7 @@ su2c_meta["SAMPLE_ID"] = su2c_meta["SAMPLE_ID"].astype(str)
 gsva_res_meta = pd.merge(su2c_meta,gsva_res_df, on="SAMPLE_ID", how="inner")
 
 
-gsva_res_meta["Liu_PTEN_loss"] = gsva_res_meta["Liu_PTEN_loss_UP"] - abs(gsva_res_meta["Liu_PTEN_loss_DOWN"])
+gsva_res_meta["Liu_PTEN_loss"] = gsva_res_meta["Liu_PTEN_loss_UP"] - gsva_res_meta["Liu_PTEN_loss_DOWN"]
 
 # Assign AR activity level based on the Z score of the GSVA score
 gsva_res_meta["AR_SCORE_Z"] = (gsva_res_meta["AR_SCORE"] - gsva_res_meta["AR_SCORE"].mean()) / gsva_res_meta["AR_SCORE"].std()
@@ -95,7 +90,7 @@ gsva_res_meta.to_csv(f"{datadir}/bulkRNA_tissue/outputs/su2c_gsva_metadata.csv")
 # 0.0009061383316293359
 
 # define gene sets to plot
-gene_sets = ["ARS_stress_linked_sensitive","SOX4_associated_resistance","SOX4_regulon", "hallmark_pi3k_akt_mtor_signaling"]
+gene_sets = ["ARS_stress_linked_sensitive","SOX4_linked_resistance","SOX4_regulon", "hallmark_pi3k_akt_mtor_signaling"]
 
 
 # Fig 3B, supplementary Fig 4C
@@ -162,7 +157,6 @@ stats_list_all = []
 col_order = ["pten_high_ar_low", "pten_low_ar_high", "pten_high_ar_high", "pten_low_ar_low"]
 
 for config in plot_configs:
-    #print("object:", config["object_name"])
     if "signature" in config["object_name"]:
         order = col_order
     else: 
@@ -182,8 +176,6 @@ gsva_res_meta = gsva_res_meta.rename(columns={
 
 scores_to_test = ["Basal", "Luminal","NE_identity","Duct luminal"]
 
-gsva_res_meta["Beltran_NEPC"] = gsva_res_meta["Beltran_NEPC_UP"] - abs(gsva_res_meta["Beltran_NEPC_DOWN"])
-
 plt.rcdefaults()
 
 # ----------------------------------------------------------
@@ -192,7 +184,7 @@ plt.rcdefaults()
 
 scores_to_test = ["Basal", "Luminal","NE_identity","Duct_luminal"]
 predictors = [
-    "AR_variant_ARV", "AR_activity","Liu_PTEN_loss","hallmark_wnt_beta_catenin_signaling","hallmark_pi3k_akt_mtor_signaling","ARS_stress_linked_sensitive","SOX4_associated_resistance","SOX4_regulon" 
+    "AR_variant_ARV", "AR_activity","Liu_PTEN_loss","hallmark_wnt_beta_catenin_signaling","hallmark_pi3k_akt_mtor_signaling","ARS_stress_linked_sensitive","SOX4_linked_resistance","SOX4_regulon" 
 ]
 
 pdf_path = f"{datadir}/bulkRNA_tissue/figures/SU2C_SOX4_ARS_linear_regression.pdf"
@@ -219,55 +211,13 @@ with PdfPages(pdf_path) as pdf:
         pdf.savefig(dpi=300)
         plt.close()
 
-# Basal Intercept                              7.884804e-02
-# AR_variant_ARV                         7.884804e-02
-# AR_activity                            2.130184e-01
-# Liu_PTEN_loss                          3.052274e-01
-# hallmark_wnt_beta_catenin_signaling    9.781201e-08
-# hallmark_pi3k_akt_mtor_signaling       7.458329e-01
-# ARS_stress_linked_sensitive            9.635256e-04
-# SOX4_associated_resistance             2.423160e-29
-# SOX4_regulon                           2.794857e-02
-# dtype: float64 0.5511130241486603
-# Luminal Intercept                              1.876348e-07
-# AR_variant_ARV                         1.876348e-07
-# AR_activity                            1.229480e-11
-# Liu_PTEN_loss                          1.737006e-05
-# hallmark_wnt_beta_catenin_signaling    5.037396e-01
-# hallmark_pi3k_akt_mtor_signaling       5.195346e-01
-# ARS_stress_linked_sensitive            1.266813e-14
-# SOX4_associated_resistance             3.983875e-01
-# SOX4_regulon                           6.173019e-01
-# dtype: float64 0.6246540124722302
-# NE_identity Intercept                              9.754044e-01
-# AR_variant_ARV                         9.754044e-01
-# AR_activity                            1.200127e-05
-# Liu_PTEN_loss                          3.066401e-01
-# hallmark_wnt_beta_catenin_signaling    9.091654e-01
-# hallmark_pi3k_akt_mtor_signaling       5.781716e-07
-# ARS_stress_linked_sensitive            1.171673e-01
-# SOX4_associated_resistance             1.103484e-02
-# SOX4_regulon                           1.943427e-06
-# dtype: float64 0.48488116317114205
-# Duct_luminal Intercept                              8.413916e-01
-# AR_variant_ARV                         8.413916e-01
-# AR_activity                            1.315881e-02
-# Liu_PTEN_loss                          2.934272e-01
-# hallmark_wnt_beta_catenin_signaling    1.250278e-01
-# hallmark_pi3k_akt_mtor_signaling       5.090266e-03
-# ARS_stress_linked_sensitive            6.992346e-06
-# SOX4_associated_resistance             1.508855e-10
-# SOX4_regulon                           4.478830e-01
-# dtype: float64 0.39279066537626905
-
-
 
 # The regression model remarks about large eigenvalue (which might indicate that there are
 # strong multicollinearity problems or that the design matrix is singular)
 # Let's test for multicollinearity with variance inflation factors:
 
 
-X = gsva_res_meta[["Liu_PTEN_loss", "AR_activity","SOX4_regulon", "ARS_stress_linked_sensitive","SOX4_associated_resistance", "hallmark_pi3k_akt_mtor_signaling","hallmark_wnt_beta_catenin_signaling","AR_variant_ARV"]]
+X = gsva_res_meta[["Liu_PTEN_loss", "AR_activity","SOX4_regulon", "ARS_stress_linked_sensitive","SOX4_linked_resistance", "hallmark_pi3k_akt_mtor_signaling","hallmark_wnt_beta_catenin_signaling","AR_variant_ARV"]]
 X = sm.add_constant(X)  # adds intercept
 
 vif_data = pd.DataFrame()
@@ -275,16 +225,17 @@ vif_data["feature"] = X.columns
 vif_data["VIF"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
 print(vif_data)
 
-# >>> print(vif_data)
 #                                feature       VIF
-# 0                        Liu_PTEN_loss  1.427628
-# 1                          AR_activity  1.981743
-# 2                         SOX4_regulon  1.490904
-# 3          ARS_stress_linked_sensitive  2.053218
-# 4           SOX4_associated_resistance  1.576349
-# 5     hallmark_pi3k_akt_mtor_signaling  1.526443
-# 6  hallmark_wnt_beta_catenin_signaling  1.203589
-# 7                       AR_variant_ARV  2.079727
+# 0                                const  1.072240
+# 1                        Liu_PTEN_loss  1.259894
+# 2                          AR_activity  2.195553
+# 3                         SOX4_regulon  1.527075
+# 4          ARS_stress_linked_sensitive  2.288211
+# 5               SOX4_linked_resistance  1.563697
+# 6     hallmark_pi3k_akt_mtor_signaling  1.504184
+# 7  hallmark_wnt_beta_catenin_signaling  1.235982
+# 8                       AR_variant_ARV  1.389747
+
 # VIFs are < 5 (~1-2), so the correlation is not severe and we don't have to apply corrective measures
 
 
@@ -294,7 +245,7 @@ print(vif_data)
 
 # Z score the GSVA values
 gsva_res_meta["SOX4_regulon_Z"] = (gsva_res_meta["SOX4_regulon"] - gsva_res_meta["SOX4_regulon"].mean()) / gsva_res_meta["SOX4_regulon"].std()
-gsva_res_meta["SOX4_associated_resistance_Z"] = (gsva_res_meta["SOX4_associated_resistance"] - gsva_res_meta["SOX4_associated_resistance"].mean()) / gsva_res_meta["SOX4_associated_resistance"].std()
+gsva_res_meta["SOX4_linked_resistance_Z"] = (gsva_res_meta["SOX4_linked_resistance"] - gsva_res_meta["SOX4_linked_resistance"].mean()) / gsva_res_meta["SOX4_linked_resistance"].std()
 gsva_res_meta["Basal_Z"] = (gsva_res_meta["Basal"] - gsva_res_meta["Basal"].mean()) / gsva_res_meta["Basal"].std()
 gsva_res_meta["Duct_luminal_Z"] = (gsva_res_meta["Duct_luminal"] - gsva_res_meta["Duct_luminal"].mean()) / gsva_res_meta["Duct_luminal"].std()
 gsva_res_meta["Luminal_Z"] = (gsva_res_meta["Luminal"] - gsva_res_meta["Luminal"].mean()) / gsva_res_meta["Luminal"].std()
@@ -302,7 +253,7 @@ gsva_res_meta["NE_identity_Z"] = (gsva_res_meta["NE_identity"] - gsva_res_meta["
 
 
 group_vars = [
-    "SOX4_associated_resistance_Z",
+    "SOX4_linked_resistance_Z",
     "SOX4_regulon_Z"
 ]
 
@@ -352,8 +303,25 @@ with PdfPages(pdf_path) as pdf:
         pdf.savefig(dpi=300)
 
 
-results = []
+# Chi-square statistic: 41.4195
+# p-value: 5.3278e-09
+# Contingency table:
+# dominant_lineage                Basal_Z  Duct_luminal_Z  Luminal_Z  NE_identity_Z
+# SOX4_linked_resistance_Z_group                                                   
+# High                                 39              37         28             27
+# Low                                   7              25         67             19
+# <Figure size 200x300 with 0 Axes>
+# <Axes: xlabel='SOX4_linked_resistance_Z_group'>
+# Chi-square statistic: 22.4823
+# p-value: 5.1767e-05
+# Contingency table:
+# dominant_lineage      Basal_Z  Duct_luminal_Z  Luminal_Z  NE_identity_Z
+# SOX4_regulon_Z_group                                                   
+# High                       31              28         34             33
+# Low                        15              34         61             13
 
+
+results = []
 
 for var in group_vars:
     group_name = f"{var}_group"
@@ -372,7 +340,6 @@ for var in group_vars:
             "p_value": pval
         })
 
-
 fisher_results = pd.DataFrame(results)
 
 # adjust p-values for multiple testing
@@ -381,13 +348,12 @@ fisher_results["p_adj"] = multipletests(fisher_results["p_value"], method="fdr_b
 
 print(fisher_results)
 
-# >>> print(fisher_results)
-#                        variable         lineage  odds_ratio       p_value         p_adj
-# 0  SOX4_associated_resistance_Z         Basal_Z    5.649123  1.550863e-06  6.203451e-06
-# 1  SOX4_associated_resistance_Z  Duct_luminal_Z    1.131761  7.710596e-01  7.710596e-01
-# 2  SOX4_associated_resistance_Z       Luminal_Z    0.216288  1.342184e-08  1.073747e-07
-# 3  SOX4_associated_resistance_Z   NE_identity_Z    1.840733  7.830504e-02  1.044067e-01
-# 4                SOX4_regulon_Z         Basal_Z    2.597656  4.649735e-03  9.299470e-03
-# 5                SOX4_regulon_Z  Duct_luminal_Z    0.767561  3.858438e-01  4.409643e-01
-# 6                SOX4_regulon_Z       Luminal_Z    0.364583  1.289049e-04  3.437464e-04
-# 7                SOX4_regulon_Z   NE_identity_Z    2.581633  6.216089e-03  9.945742e-03
+#                    variable         lineage  odds_ratio       p_value         p_adj
+# 0  SOX4_linked_resistance_Z         Basal_Z    6.722050  1.018685e-06  4.074741e-06
+# 1  SOX4_linked_resistance_Z  Duct_luminal_Z    1.464255  2.405859e-01  3.207812e-01
+# 2  SOX4_linked_resistance_Z       Luminal_Z    0.206927  1.248484e-08  9.987876e-08
+# 3  SOX4_linked_resistance_Z   NE_identity_Z    1.352733  4.149340e-01  4.149340e-01
+# 4            SOX4_regulon_Z         Basal_Z    2.349474  1.408978e-02  2.254365e-02
+# 5            SOX4_regulon_Z  Duct_luminal_Z    0.747899  3.796200e-01  4.149340e-01
+# 6            SOX4_regulon_Z       Luminal_Z    0.375624  2.633149e-04  7.021730e-04
+# 7            SOX4_regulon_Z   NE_identity_Z    3.002481  1.778792e-03  3.557583e-03

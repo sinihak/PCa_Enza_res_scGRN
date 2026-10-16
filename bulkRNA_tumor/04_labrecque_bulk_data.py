@@ -64,7 +64,7 @@ meta_index = meta.index.copy()
 
 
 # Add the mutation metadata
-# From labrecque et al, J Clin Invest 2025, https://doi.org/10.1172/JCI186599 Fig 1D
+# From Roudier et al, J Clin Invest 2025, https://doi.org/10.1172/JCI186599 Fig 1D
 mutation_metadata = pd.read_excel(f"{datadir}/data/labrecque_2019_mutation_data.xlsx") 
 
 cna_categories = ["amplification", "cn_gain", "cnv", "none", "monoallelic_loss","biallelic_loss","missing"]
@@ -100,7 +100,6 @@ gsva_res_df = gsva_res.res2d.pivot(index="Name", columns="Term", values="ES").re
 gsva_res_meta = pd.merge(meta,gsva_res_df, right_on="SAMPLE_ID",left_index=True)
 
 
-gsva_res_meta["Liu_PTEN_loss"] = gsva_res_meta["Liu_PTEN_loss_UP"] - gsva_res_meta["Liu_PTEN_loss_DOWN"]
 
 
 # keep those with known PTEN status only
@@ -109,12 +108,11 @@ list(set(gsva_res_meta_sub["PTEN_STATUS"]))
 
 
 # assign the simple Pten status 
-gsva_res_meta_sub["PTEN_STATUS_SIMPLE"] = np.where(
+gsva_res_meta_sub["PTEN_CN_loss"] = np.where(
     gsva_res_meta_sub["PTEN_STATUS"].isin(["biallelic_loss", "monoallelic_loss"]),
-    "pten_altered",
-    "pten_unaltered"
+    "yes",
+    "no"
 )
-
 
 # add a key with empty values for looping
 key = "Liu_PTEN_loss"
@@ -130,7 +128,6 @@ gene_sets[key] =None
 # Visualize gene set activities (Fig 3A, supplementary Fig 4A) 
 # ------------------------------------------------------------
 
-gsva_res_meta_sub["Beltran_NEPC"] = gsva_res_meta_sub["Beltran_NEPC_UP"] - abs(gsva_res_meta_sub["Beltran_NEPC_DOWN"])
 gs_to_plot = ["ARS_stress_linked_sensitive","SOX4_associated_resistance","SOX4_regulon", "hallmark_pi3k_akt_mtor_signaling", "AR_activity"]
 sns.set_style("ticks")
 
@@ -140,17 +137,17 @@ with PdfPages(f"{datadir}/bulkRNA_tissue/figures/labrecque_gsva_boxplots.pdf") a
         sns.boxplot( 
             data=gsva_res_meta_sub,
             y=key,
-            hue="PTEN_STATUS_SIMPLE",
+            hue="PTEN_CN_loss",
             linewidth=1,
             linecolor="black",
             fill=True,
-            palette={"pten_altered": "#D2042D", "pten_unaltered":"#0096FF"},
+            palette={"yes": "#D2042D", "no":"#0096FF"},
             zorder=1,
             gap=0.2
             )
         gsva_res_meta_sub[key] = pd.to_numeric(gsva_res_meta_sub[key], errors="coerce")
-        altered_vals = gsva_res_meta_sub.loc[gsva_res_meta_sub["PTEN_STATUS_SIMPLE"]=="pten_altered", key]
-        unaltered_vals = gsva_res_meta_sub.loc[gsva_res_meta_sub["PTEN_STATUS_SIMPLE"]=="pten_unaltered", key]
+        altered_vals = gsva_res_meta_sub.loc[gsva_res_meta_sub["PTEN_CN_loss"]=="yes", key]
+        unaltered_vals = gsva_res_meta_sub.loc[gsva_res_meta_sub["PTEN_CN_loss"]=="no", key]
         # Compute mann-whitney
         stat, pval = mannwhitneyu(altered_vals, unaltered_vals, alternative="two-sided")
         # Annotate p-value above plot

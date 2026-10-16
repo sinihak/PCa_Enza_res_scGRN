@@ -275,6 +275,9 @@ with PdfPages(pdf_path) as pdf:
             })
         stats_df = pd.DataFrame(stats_list)
 
+# >>> stats_df
+#                  gene set  comparison  p_value p_value_decimal
+# 0  SOX4_linked_resistance  HSPC vs PC      0.0          0.0000
 
 ##### Cell lineage-specific PTEN-association #########
 
@@ -382,6 +385,22 @@ with PdfPages(pdf_path) as pdf:
                     "p_value_decimal": pval_decimal 
                 })
             stats_df = pd.DataFrame(stats_list)
+
+
+#   phenotype      cell_type                     gene set   comparison        p_value p_value_decimal
+# 0       HSPC          basal  ARS_stress_linked_sensitive  high vs low  1.683735e-106          0.0000
+# 1       HSPC      club-like  ARS_stress_linked_sensitive  high vs low   0.000000e+00          0.0000
+# 2       HSPC  tumor_luminal  ARS_stress_linked_sensitive  high vs low   0.000000e+00          0.0000
+# 3       HSPC          basal       SOX4_linked_resistance  high vs low   1.810972e-85          0.0000
+# 4       HSPC      club-like       SOX4_linked_resistance  high vs low  3.700417e-195          0.0000
+# 5       HSPC  tumor_luminal       SOX4_linked_resistance  high vs low  6.623665e-164          0.0000
+# 6         PC  tumor_luminal  ARS_stress_linked_sensitive  high vs low  1.769369e-297          0.0000
+# 7         PC      club-like  ARS_stress_linked_sensitive  high vs low   1.142536e-11          0.0000
+# 8         PC          basal  ARS_stress_linked_sensitive  high vs low   6.197957e-04          0.0006
+# 9         PC  tumor_luminal       SOX4_linked_resistance  high vs low  1.349801e-115          0.0000
+# 10        PC      club-like       SOX4_linked_resistance  high vs low   1.508844e-01          0.1509
+# 11        PC          basal       SOX4_linked_resistance  high vs low   6.103020e-02          0.0610
+
 
 
 def compute_DEGs(adata, group,groupby,reference, pval_cutoff):
