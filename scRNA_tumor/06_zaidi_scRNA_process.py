@@ -148,21 +148,6 @@ with PdfPages(filename) as pdf:
         pdf.savefig(dpi=300,bbox_inches="tight", pad_inches=0.5)
         plt.close()
 
-
-resolutions = [0.1,0.2, 0.4, 0.6, 0.8, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
-n_clusters = []
-for res in resolutions:
-    sc.tl.leiden(adata, resolution=res)
-    n_clusters.append(adata.obs['leiden'].nunique())
-
-plt.figure(figsize=(4,4))
-plt.plot(resolutions, n_clusters, marker='o')
-plt.xlabel('Resolution')
-plt.ylabel('Number of clusters')
-plt.tight_layout()
-plt.savefig(f'{datadir}/scRNA_tumor/figures/zaidi_rna_clustering_resolution.pdf')
-plt.close()
-
 sc.tl.leiden(adata, resolution=0.6)
 
 sc.pl.pca(adata, color='leiden', size=10)

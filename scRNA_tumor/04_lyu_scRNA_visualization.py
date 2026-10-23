@@ -18,26 +18,25 @@ import re
 from matplotlib.backends.backend_pdf import PdfPages
 from statsmodels.stats.multitest import multipletests
 from adjustText import adjust_text
-
+from statsmodels.stats.anova import anova_lm
 from pathlib import Path
 datadir = Path.cwd() 
 
+from sklearn.preprocessing import MinMaxScaler
 
 
 gs = f"{datadir}/data/genesets_to_plot.xlsx"
 gene_sets = ut.load_gene_sets_excel(gs)
 ar_genes = gene_sets["hallmark_androgen_response"]
 
-gs_to_keep = ["SOX4_regulon", "SOX4_linked_resistance", "ARS_stress_linked_sensitive"]
-gene_sets = {key: gene_sets[key] for key in gs_to_keep}
+gs_to_keep = ["SOX4_regulon", "SOX4_linked_resistance", "ARS_stress_linked_sensitive", "Liu_PTEN_loss_UP", "AR_activity"]
 
+gene_sets = {key: gene_sets[key] for key in gs_to_keep}
 
 # ignore the ribosomal genes
 gene_sets["ARS_stress_linked_sensitive"] =  [gene for gene in gene_sets["ARS_stress_linked_sensitive"] if not re.match(r"^(RPL|RPS)", gene)]
 # remove canonical androgen response genes
 gene_sets["ARS_stress_linked_sensitive"] = list(set(gene_sets["ARS_stress_linked_sensitive"]) - set(ar_genes))
-
-
 
 
 # remove canonical androgen response genes
@@ -48,6 +47,45 @@ for key, genes in gene_sets.items():
         gene_sets[key] = list(set(genes) - set(ar_genes))
 
 
+# palette for phenotypes
+palette={'PC':'#4169E1', 'HSPC':'#FF4500'}
+
+# Load anndata
+adata_concat = ad.read_h5ad(f'{datadir}anndata/annotated_adata_obj_refined.h5ad')
+# keep the PC and HSPC epithelial cells
+adata_concat = adata_concat[adata_concat.obs['type'].isin(['PC', 'HSPC'])]
+
+adata = adata_concat[adata_concat.obs['cell_type'] == 'Epithelial cell']
+# Load aucell results
+
+auc =  pd.read_csv(f'{datadir}/outputs/auc_scores_Lyu_scRNA_cell_rankings.csv')
+auc = auc[auc.index.isin(adata.obs_names)].copy()
+
+# For AUCell, the overlaps between the gene sets were removed:
+# ignore canonical AR genes:
+# hallmark_genesets <- msigdbr(species = "Homo sapiens", category = "H")
+# hallmark  <- split(hallmark_genesets$gene_symbol, hallmark_genesets$gs_name)
+# ar_genes <- hallmark[names(hallmark) %in% 'HALLMARK_ANDROGEN_RESPONSE']
+# genesets_list$'ARS_stress_linked_sensitive' <- setdiff(genesets_list$'ARS_stress_linked_sensitive',ar_genes)
+# genesets_list$'ARS_stress_linked_sensitive' <- setdiff(genesets_list$'ARS_stress_linked_sensitive',genesets_list$'AR_activity')
+# genesets_list$'SOX4_associated_resistance_wo_SOX4_regulon' <- setdiff(genesets_list$'SOX4_associated_resistance',network_list$SOX4_regulon)
+# Ribosomal genes were also ignored:
+# genesets_list[['ARS_stress_linked_sensitive']] <- genesets_list[['ARS_stress_linked_sensitive']][
+#     !grepl('^(RPL|RPS)', genesets_list[['ARS_stress_linked_sensitive']])
+#   ]
+
+# bool(set(gene_sets['Liu_PTEN_loss_UP']) & set(gene_sets['SOX4_linked_resistance']))
+# False
+# bool(set(gene_sets['Liu_PTEN_loss_UP']) & set(gene_sets['SOX4_regulon']))
+# False
+# bool(set(gene_sets['AR_activity']) & set(gene_sets['SOX4_linked_resistance']))
+# False
+# bool(set(gene_sets['AR_activity']) & set(gene_sets['SOX4_regulon']))
+# False
+# bool(set(gene_sets['Liu_PTEN_loss_UP']) & set(gene_sets['ARS_stress_linked_sensitive']))
+# False
+
+
 def assign_color(row, genes_to_highlight):
     if row["gene"] in genes_to_highlight and row["delta"] > 0:
         return "#D62728"
@@ -55,6 +93,7 @@ def assign_color(row, genes_to_highlight):
         return "#1800FF"
     else:
         return "#B0B0B0"
+
 
 
 # function to plot the delta rank plot
@@ -126,14 +165,15 @@ genes = pd.read_csv(f"{datadir}/scRNA_tumor/outputs/scRNA_Lyu_genes_lemur.csv", 
 # build delta value dataframe
 outpath=f"{datadir}/scRNA_tumor/outputs/scRNA_Lyu_mean_delta_HSPC_vs_PC.json"
 mean_delta = compute_and_save_mean_delta(data=data, cells=cells, genes=genes, outpath=outpath)
-mean_delta = pd.DataFrame(mean_delta)
+res = pd.DataFrame(mean_delta)
+
+
 
 
 # --------------------------
 # Lemur rank plot (Fig. 2I) 
 # --------------------------
-
-plot_rank_delta(res,genes_to_highlight=sox4_targets, outfile_name="scRNA_Lyu_lemur_rank_plot_HSPC_vs_PC.pdf")
+plot_rank_delta(res,genes_to_highlight=sox4_targets, outfile_name='scRNA_Lyu_lemur_rank_plot_HSPC_vs_PC.pdf')
 
 
 ####  Multivariate linear regression analysis
@@ -236,90 +276,185 @@ with PdfPages(pdf_path) as pdf:
     pdf.savefig(dpi=300)
     plt.close()
 
-# ----------------------------------------------------------------
-# SOX4-linked resistance phenotype activity (Supplementary Fig. 3I) 
-# -----------------------------------------------------------------
+# ---------------------------------------------------------------
+# SOX4-linked resistance across phenotypes (Supplementary Fig 3I)
+# ---------------------------------------------------------------
 
-y_options = ["SOX4_linked_resistance"]
-groups = list(adata.obs["type"].unique())
-stats_list = []
-palette={"PC":"#4169E1", "HSPC":"#FF4500"}
+plt.figure(figsize=(2,2))
+sns.boxplot(
+    data=sample_df,
+    x="type",
+    y="SOX4_linked_resistance",
+    showfliers=False,
+    palette=palette,
+)
+sns.stripplot(
+        data=sample_df,
+        x="type",
+        y="SOX4_linked_resistance",
+        alpha=0.6,
+        palette=palette,
+        linewidth = 0.5,
+        edgecolor='black',
+    )
+plt.savefig(f'{datadir}figures/scRNA_Lyu_HSPC_PC_SOX4_phenotype_boxplot.pdf', dpi=300,bbox_inches='tight')
+plt.close()
 
-pdf_path = f"{datadir}/scRNA_tumor/figures/scRNA_Lyu_HSPC_PC_SOX4_linked_resistance_violin.pdf"
-with PdfPages(pdf_path) as pdf:
-        for y in y_options:
-            plt.figure(figsize=(3, 5))
-            sns.violinplot(
-                data=adata.obs, 
-                y=y, 
-                hue="type",
-                palette=palette,
-                linewidth=1.5,
-                split=True,
-                inner=None
-            )
-            plt.xticks(rotation=30)
-            plt.ylim(0, 0.15)
-            plt.tight_layout()
-            pdf.savefig(bbox_inches="tight", dpi=300)
-            plt.close()
-            vals1 = adata.obs.loc[adata.obs["type"] == groups[0], y].dropna()
-            vals2 = adata.obs.loc[adata.obs["type"] == groups[1], y].dropna()
-            stat, pval = mannwhitneyu(vals1, vals2, alternative="two-sided")
-            pval_decimal = f"{pval:.4f}" 
-            stats_list.append({
-                "gene set": y,
-                "comparison": f"{groups[0]} vs {groups[1]}",
-                "p_value": pval,
-                "p_value_decimal": pval_decimal 
-            })
-        stats_df = pd.DataFrame(stats_list)
+# Statistics will be derived from linear model + anova, taking into account epithelial cell lineage, PTEN, AR and phenotype effect:
+# -----------------------------------------------------------------------------
+# Cell lineage, PTEN, AR and phenotype effect (Fig. 2K, Supplementary Fig. 3I) 
+# ----------------------------------------------------------------------------
 
-# >>> stats_df
-#                  gene set  comparison  p_value p_value_decimal
-# 0  SOX4_linked_resistance  HSPC vs PC      0.0          0.0000
-
-##### Cell lineage-specific PTEN-association #########
-
-pten_data =  adata.obs.groupby("sample")["Liu_PTEN_loss_UP"].mean().reset_index()
-
-pten_median = pten_data["Liu_PTEN_loss_UP"].median()
-
-# assign the PTEN signature activity level
-pten_data["PTEN_signature_activity_level"] = np.where(
-    pten_data["Liu_PTEN_loss_UP"] < pten_median, "low", "high"
+sample_celltype_df = (
+    adata.obs
+    .groupby(["sample", "cell_type_refined"])
+    .agg({
+        "SOX4_regulon": "mean",
+        "ARS_stress_linked_sensitive": "mean",
+        "SOX4_linked_resistance": "mean",
+        "Liu_PTEN_loss_UP": "mean",
+        "AR_activity": "mean",
+        "type": "first"
+    })
+    .reset_index()
 )
 
-# assign PTEN activity status based on the signature (higher -> PTEN likely lost/low)
 
-# PTEN likely lost
-pten_data.loc[
-    (pten_data["PTEN_signature_activity_level"] == "high"),
-    "inferred_PTEN_activity_status"
-] = "low"
+scores_to_test = ['ARS_stress_linked_sensitive','SOX4_linked_resistance']
 
-pten_data.loc[
-    (pten_data["PTEN_signature_activity_level"] == "low"),
-    "inferred_PTEN_activity_status"
-] = "high"
+sample_celltype_df = sample_celltype_df.dropna()
 
-sample_type = ( 
-    adata.obs.groupby("sample")["type"] 
-    .first() 
-    .reset_index()
-    )
+model = smf.ols(
+    f'{score} ~ Liu_PTEN_loss_UP_z + C(cell_type_refined, Treatment(reference="tumor_luminal")) + C(type)',
+    data=sample_celltype_df.dropna()
+).fit()
+# we have multiple predictors. Let's select type 2 test, i.e. terms are tested after accounting other terms
+anova = anova_lm(model, typ=2)
+
+print(anova)
+
+pdf_path = f'{datadir}/figures/scRNA_Lyu_HSPC_PC_ARS_stress_SOX4_box.pdf'
+scores_to_test = ['ARS_stress_linked_sensitive','SOX4_linked_resistance']
+
+
+pdf_path = f'{datadir}figures/scRNA_Lyu_HSPC_PC_ARS_SOX4_anova_results.pdf'
+with PdfPages(pdf_path) as pdf:
+    for score in scores_to_test:
+        model = smf.ols(
+            f'{score} ~ AR_activity + Liu_PTEN_loss_UP + C(cell_type_refined, Treatment(reference="tumor_luminal")) + C(type)',
+            data=sample_celltype_df.dropna()
+        ).fit()
+        print(model.rsquared_adj)
+        print(model.rsquared)
+        rsquared = model.rsquared_adj
+        anova = anova_lm(model, typ=2)
+        anova_plot = anova.iloc[:-1].copy() # remove residual
+        print(anova_plot)
+        anova_plot = anova_plot.rename(index={'C(cell_type_refined, Treatment(reference="tumor_luminal"))': "Lineage", 'C(type)': 'Type', 'Liu_PTEN_loss_UP': 'Liu PTEN loss', "AR_activity": "AR activity"}) 
+        plt.figure(figsize=(4, 2.5))
+        ax = sns.barplot(
+            data=anova_plot.reset_index(),
+            x="F",
+            y="index",
+            color="#2C1440",
+        )
+        for i, (_, row) in enumerate(anova_plot.iterrows()):
+            p = row["PR(>F)"]
+            if p < 1e-3:
+                label = f"p={p:.1e}"
+            else:
+                label = f"p={p:.3f}"
+            ax.text(
+                row["F"] + 0.5,
+                i,
+                label,
+                va="center",
+                fontsize=8
+            )
+        plt.title(f"{score}\nAdj. R² = {rsquared:.2f}") # adjusted R2 penalizes if the some of the variables is irrelevant       
+        plt.tight_layout()
+        pdf.savefig(dpi=300)
+        plt.close()
     
 
-adata.obs["barcode"] = adata.obs.index
-pten_metadata = pd.merge(adata.obs,pten_data,on="sample", how="left", sort=False)
-pten_metadata.index = adata.obs.index
+# sample_celltype_df.dropna().shape
+# (96, 8)
 
-adata.obs[["inferred_PTEN_activity_status"]] = pten_metadata[["inferred_PTEN_activity_status"]]
+
+# Anova residual df = 96 observations - 4 (model dfs) - 1 (intercept) = 91
+# Residual F and PR are NaN, because that is what the other predictors are tested against (it cannot be tested against itself)
+# sum_sq: how much of the variation in the score each predictor explains after accounting for other predictors (because we use type 2 test)
+
+pdf_path = f'{datadir}figures/scRNA_Lyu_HSPC_PC_ARS_stress_SOX4_celltype_boxplot.pdf'
+scores_to_test = ['ARS_stress_linked_sensitive','SOX4_linked_resistance']
+
+palette={'PC':'#4169E1', 'HSPC':'#FF4500'}
+
+with PdfPages(pdf_path) as pdf:
+    for score in scores_to_test:
+        plt.figure(figsize=(3,3))
+        sns.boxplot(
+            data=sample_celltype_df,
+            x="cell_type_refined",
+            y=score,
+            hue="type",
+            showfliers=False,
+            palette=palette,
+        )
+        sns.stripplot(
+            data=sample_celltype_df,
+            x="cell_type_refined",
+            y=score,
+            hue="type",
+            dodge=True,
+            alpha=0.6,
+            palette=palette,
+            linewidth = 0.5,
+            edgecolor='black',
+        )
+        pdf.savefig(dpi=300,bbox_inches='tight')
+        plt.close()
+
+
+
+# ----------------------------------------------------------------
+# SOX4-linked resistance across phenotypes (Supplementary Fig. 3I) 
+# ----------------------------------------------------------------
+
+
+plt.figure(figsize=(5,4))
+sns.boxplot(
+    data=sample_df,
+    x="type",
+    y=score,
+    showfliers=False
+)
+sns.stripplot(
+    data=sample_celltype_df,
+    x="cell_type_refined",
+    y=score,
+    hue=type,
+    dodge=True,
+    alpha=0.6,
+    color="black"
+)
+pdf.savefig(dpi=300,bbox_inches='tight')
+plt.close()
+
 
 
 # -------------------------------------------------------------
 # SOX4 regulon in epithelial sublineages (Supplementary Fig 3J)
 # -------------------------------------------------------------
+
+
+cats = adata_concat.obs["tumortype_celltype"].cat.categories.tolist()
+# Group by prefix (case-insensitive, safer)
+pca  = [c for c in cats if c.startswith("PC")]
+hspc = [c for c in cats if c.startswith("HSPC")]
+
+# Combine in desired order
+order = pca + hspc
 
 sox4_regulon = ["SESN3","CD24","KCNMB4","MBNL2","ZMAT1","TUBA1A","MARCKS","ZSWIM5","TMSB4X","C16orf89","ZNF608","MET","SOX4"]
 X_sox4 = adata[:, sox4_regulon].X.toarray()
@@ -327,81 +462,51 @@ sox4_linkage = sch.linkage(X_sox4.T, method="ward")  # Cluster columns
 sox4_dendro = sch.dendrogram(sox4_linkage, no_plot=True)["leaves"]
 sox4_order = [sox4_regulon[i] for i in sox4_dendro]
 
+dp2 = sc.pl.DotPlot(adata,var_names=sox4_order, groupby="tumortype_celltype",standard_scale="var",categories_order=order)
+dp2.legend(colorbar_title="Mean expression")
+dp2.style(cmap="magma", smallest_dot=30, largest_dot=300)
+dp2.savefig(f"{datadir}/scRNA_tumor/figures/scRNA_Lyu_tumor_type_refined_epithelial_cell_type_SOX4_regulon_dotplot.pdf",bbox_inches="tight", dpi=300)
 
-dp4 = sc.pl.DotPlot(adata,var_names=sox4_order, groupby="tumortype_celltype",standard_scale="var",categories_order=order)
-dp4.legend(colorbar_title="Mean expression")
-dp4.style(cmap="magma", smallest_dot=30, largest_dot=300)
-dp4.savefig(f"{datadir}/scRNA_tumor/figures/scRNA_Lyu_tumor_type_refined_epithelial_cell_type_SOX4_regulon_dotplot.pdf",bbox_inches="tight", dpi=300)
 
-# ---------------------------------------
-# Cell lineage vs. PTEN effect (Fig. 2K) 
-# ---------------------------------------
+# ------------------------------------------------------------------------------------------------------------------------
+# SOX4-linked resistance vs. ARS- and stress-linked sensitivity in mHSPC club-like and basal cells (Supplementary Fig. 3K) 
+# ------------------------------------------------------------------------------------------------------------------------
 
-groups = list(adata.obs["inferred_PTEN_activity_status"].unique())
-stats_list = []
-palette={"low":"#D2042D", "high":"#0096FF"}
-y_options = ["ARS_stress_linked_sensitive","SOX4_linked_resistance"]
-hue_order = ["low", "high"]
+hspc = adata[adata.obs["type"] == "HSPC"]
+hspc_club_basal = hspc[hspc.obs["cell_type_refined"].isin(["basal", "club-like"])]
 
-pdf_path = f"{datadir}/scRNA_tumor/figures/scRNA_Lyu_HSPC_PC_ARS_stress_linked_sensitive_PTEN_status_median_violins.pdf"
+gs_x = "ARS_stress_linked_sensitive"
+gs_y =["SOX4_linked_resistance"]
+
+scaler = MinMaxScaler()
+
+#lets visualize the correlation of the two larger gene sets as a scatter
+pdf_path = f"{datadir}/scRNA_tumor/figures/scRNA_Lyu_HSPC_ARS_stress_SOX4_club_basal_scatters.pdf"
 with PdfPages(pdf_path) as pdf:
-    for pheno in adata.obs["type"].unique():  # loop over unique phenotypes
-        phenotype = adata[adata.obs["type"] == pheno]
-        for y in y_options:
-            plt.figure(figsize=(4, 5))
-            # Violinplot (split by AR activity)
-            sns.violinplot(
-                data=phenotype.obs, 
-                x="cell_type_refined", 
-                y=y, 
-                hue="inferred_PTEN_activity_status",
-                hue_order=hue_order,
-                linewidth=1.5,
-                palette=palette,
-                split=True,
-                inner=None
-            )
-            global_median = phenotype.obs[y].median()
-            plt.axhline(global_median, color="grey", linestyle="--", linewidth=2)
-            plt.xticks(rotation=30)
-            plt.title(pheno)
-            plt.ylim(0, 0.25)
-            plt.tight_layout()
-            pdf.savefig(bbox_inches="tight", dpi=300)
-            plt.close()
-            #  Compute statistics per cell type 
-            for cell_type in phenotype.obs["cell_type_refined"].unique():
-                subset = phenotype.obs[phenotype.obs["cell_type_refined"] == cell_type]
-                vals1 = subset.loc[subset["inferred_PTEN_activity_status"] == groups[0], y].dropna()
-                vals2 = subset.loc[subset["inferred_PTEN_activity_status"] == groups[1], y].dropna()
-                stat, pval = mannwhitneyu(vals1, vals2, alternative="two-sided")
-                pval_decimal = f"{pval:.4f}" 
-                stats_list.append({
-                    "phenotype": pheno,
-                    "cell_type": cell_type,
-                    "gene set": y,
-                    "comparison": f"{groups[0]} vs {groups[1]}",
-                    "p_value": pval,
-                    "p_value_decimal": pval_decimal 
-                })
-            stats_df = pd.DataFrame(stats_list)
+    for y in gs_y:
+        x_norm = scaler.fit_transform(hspc_club_basal.obs[[gs_x]]).flatten()
+        y_norm = scaler.fit_transform(hspc_club_basal.obs[[y]]).flatten()
+        fig, ax = plt.subplots(figsize=(6, 5))
+        sns.regplot(x=x_norm, y=y_norm, scatter=False, ax=ax, color="#D62728")
+        sns.scatterplot(x=x_norm, y=y_norm, ax=ax,linewidth=0.2, s=10, color = "#2C1440")
+        # calculate corr. coef and p-value
+        corr_coef, p_value = spearmanr(x_norm,y_norm)
+        ax.set_title(f"Corr: {corr_coef:.2f}, p: {p_value:.2e}")
+        plt.tight_layout()
+        pdf.savefig(dpi=300, pad_inches=0.5) 
+        plt.close() 
 
 
-#   phenotype      cell_type                     gene set   comparison        p_value p_value_decimal
-# 0       HSPC          basal  ARS_stress_linked_sensitive  high vs low  1.683735e-106          0.0000
-# 1       HSPC      club-like  ARS_stress_linked_sensitive  high vs low   0.000000e+00          0.0000
-# 2       HSPC  tumor_luminal  ARS_stress_linked_sensitive  high vs low   0.000000e+00          0.0000
-# 3       HSPC          basal       SOX4_linked_resistance  high vs low   1.810972e-85          0.0000
-# 4       HSPC      club-like       SOX4_linked_resistance  high vs low  3.700417e-195          0.0000
-# 5       HSPC  tumor_luminal       SOX4_linked_resistance  high vs low  6.623665e-164          0.0000
-# 6         PC  tumor_luminal  ARS_stress_linked_sensitive  high vs low  1.769369e-297          0.0000
-# 7         PC      club-like  ARS_stress_linked_sensitive  high vs low   1.142536e-11          0.0000
-# 8         PC          basal  ARS_stress_linked_sensitive  high vs low   6.197957e-04          0.0006
-# 9         PC  tumor_luminal       SOX4_linked_resistance  high vs low  1.349801e-115          0.0000
-# 10        PC      club-like       SOX4_linked_resistance  high vs low   1.508844e-01          0.1509
-# 11        PC          basal       SOX4_linked_resistance  high vs low   6.103020e-02          0.0610
+# correlation with the SOX4 regulon
+gs_x = "ARS_stress_linked_sensitive"
+gs_y =["SOX4_regulon"]
+corr_coef, p_value = spearmanr(hspc_club_basal.obs[gs_x],hspc_club_basal.obs[gs_y])
+print(corr_coef, p_value)
+# 0.5124975730541278 0.0
 
-
+# ----------------------------------------------------------------------------------------------
+#  GSEA of SOX4-linked resistance HIGH vs. LOW club-like and basal cells (Supplementary Table 5) 
+# ----------------------------------------------------------------------------------------------
 
 def compute_DEGs(adata, group,groupby,reference, pval_cutoff):
     """
@@ -441,48 +546,6 @@ def run_gsea(ranked_df, gene_sets="MSigDB_Hallmark_2020"):
                               n_permutations=5000)
     return gsea_result
 
-# ------------------------------------------------------------------------------------------------------------------------
-# SOX4-linked resistance vs. ARS- and stress-linked sensitivity in mHSPC club-like and basal cells (Supplementary Fig. 3K) 
-# ------------------------------------------------------------------------------------------------------------------------
-
-hspc = adata[adata.obs["type"] == "HSPC"]
-hspc_club_basal = hspc[hspc.obs["cell_type_refined"].isin(["basal", "club-like"])]
-
-gs_x = "ARS_stress_linked_sensitive"
-gs_y =["SOX4_linked_resistance"]
-
-from sklearn.preprocessing import MinMaxScaler
-scaler = MinMaxScaler()
-
-
-#lets visualize the correlation of the two larger gene sets as a scatter
-pdf_path = f"{datadir}/scRNA_tumor/figures/scRNA_Lyu_HSPC_ARS_stress_SOX4_club_basal_scatters.pdf"
-with PdfPages(pdf_path) as pdf:
-    for y in gs_y:
-        x_norm = scaler.fit_transform(hspc_club_basal.obs[[gs_x]]).flatten()
-        y_norm = scaler.fit_transform(hspc_club_basal.obs[[y]]).flatten()
-        fig, ax = plt.subplots(figsize=(6, 5))
-        sns.regplot(x=x_norm, y=y_norm, scatter=False, ax=ax, color="#D62728")
-        sns.scatterplot(x=x_norm, y=y_norm, ax=ax,linewidth=0.2, s=10, color = "#2C1440")
-        # calculate corr. coef and p-value
-        corr_coef, p_value = spearmanr(x_norm,y_norm)
-        ax.set_title(f"Corr: {corr_coef:.2f}, p: {p_value:.2e}")
-        plt.tight_layout()
-        pdf.savefig(dpi=300, pad_inches=0.5) 
-        plt.close() 
-
-
-
-# correlation with the SOX4 regulon
-gs_x = "ARS_stress_linked_sensitive"
-gs_y =["SOX4_regulon"]
-corr_coef, p_value = spearmanr(hspc_club_basal.obs[gs_x],hspc_club_basal.obs[gs_y])
-print(corr_coef, p_value)
-# 0.5124975730541278 0.0
-
-# ----------------------------------------------------------------------------------------------
-#  GSEA of SOX4-linked resistance HIGH vs. LOW club-like and basal cells (Supplementary Table 5) 
-# ----------------------------------------------------------------------------------------------
 
 q_low = hspc_club_basal.obs["SOX4_linked_resistance"].quantile(0.25)
 q_high = hspc_club_basal.obs["SOX4_linked_resistance"].quantile(0.75)

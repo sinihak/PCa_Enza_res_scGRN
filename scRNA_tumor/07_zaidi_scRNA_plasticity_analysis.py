@@ -30,18 +30,22 @@ adata.obs.index
 
 adata.obs = pd.concat([adata.obs, auc], axis=1)
 
-features = ['subtype','patient']
+
+# visualize only the CRPC and NEPC cells that will be used for the downstream analyses, recompute nngraph and umap
+adata_cr_ne = adata[adata.obs['subtype'].isin(['CRPC','NEPC'])].copy()
+sc.pp.neighbors(adata_cr_ne, metric="cosine", n_neighbors=50)
+sc.tl.umap(adata_cr_ne)
+
 
 subtype_palette = {
-    "CSPC": "#4169E1",  
     "CRPC": "#e60000",  
     "NEPC": "#ff8000"   
     }
 
 
-# -----------------------------------
+# ---------------------------------------------------------
 # Subtype and patient UMAPs (Fig. 3E, Supplementary Fig 4D) 
-# -----------------------------------
+# ---------------------------------------------------------
 
 sc.pl.umap(adata, size=15, color='subtype', show=False, palette=subtype_palette)
 plt.tight_layout()
@@ -57,78 +61,6 @@ sc.pl.umap(adata, size=15, color='patient', show=False, palette=palette)
 plt.tight_layout()
 plt.savefig(f"{datadir}/figures/zaidi_patient_umap.pdf", dpi=300,bbox_inches="tight", pad_inches=0.5)
 
-
-
-# -------------------------------------------------
-# Lineage trend across SOX4 activity bins (Fig. 3F) 
-# -------------------------------------------------
-
-
-df_all = adata.obs
-
-df_all["SOX4_bin"] = pd.qcut(
-    df_all["SOX4_regulon"],
-    q=4,
-    labels=["Q1", "Q2", "Q3", "Q4"]
-)
-
-df_all["SOX4_bin"] = df_all["SOX4_bin"].cat.reorder_categories(
-    ["Q1", "Q2", "Q3", "Q4"], ordered=True
-)
-
-trend = df_all.groupby("SOX4_bin")[[
-    "Luminal", "Basal", "Duct.luminal", 'NE_identity'
-]].mean()
-
-plt.figure(figsize=(5,4))
-trend.plot(marker="o", color=["#C48D7C", "#6882A2", "#A3B892", "#8B759B"], linewidth=2)
-plt.xlabel("SOX4-activity quartile")
-plt.ylabel("Mean lineage score")
-plt.tight_layout()
-plt.savefig(f"{datadir}/figures/zaidi_sox4_lineage_trend_all.pdf",
-            dpi=300, bbox_inches="tight", pad_inches=0.5)
-plt.close()
-
-
-
-# ------------------------------------------------------------------
-# Density plot of SOX4 regulon activity across tumor types (Fig. 3F) 
-# ------------------------------------------------------------------
-
-
-df["SOX4_tail"] = df["SOX4_regulon"] >= 0.2
-
-tail_frac = pd.crosstab(
-    df["subtype"],
-    df["SOX4_tail"],
-    normalize="index"
-)
-
-plt.figure(figsize=(5,5))
-sns.kdeplot(
-    data=df,
-    x="SOX4_regulon",
-    hue="subtype",
-    fill=False,
-    common_norm=False,
-    # alpha=0.6,
-    palette=subtype_palette
-)
-# Add tail cutoff
-plt.axvline(0.2, linestyle="--", color="black", label="SOX4 regulon-high cutoff")
-# Shade tail region
-plt.axvspan(0.2, df["SOX4_regulon"].max(), color="grey", alpha=0.15)
-plt.xlabel("SOX4 activity")
-plt.ylabel("Density")
-fracs = tail_frac[True]
-plt.text(0.40, 3, f"CSPC: {fracs['CSPC']:.2f}", color="#4169E1")
-plt.text(0.40, 2.5, f"CRPC: {fracs['CRPC']:.2f}", color="#e60000")
-plt.text(0.40, 2.0, f"NEPC: {fracs['NEPC']:.2f}", color="#ff8000")
-plt.legend()
-plt.tight_layout()
-plt.savefig(f"{datadir}/figures/zaidi_SOX4_disease_subtype_kde.pdf",
-            dpi=300, bbox_inches="tight", pad_inches=0.5)
-plt.close()
 
 
 # compute cell-level Shannon entropy for lineage specific signature scores to proxy lineage plasticity:
@@ -176,7 +108,7 @@ AR_SOX4 = df.groupby("lineage_bin")[[
 
 
 # ------------------------------------------------------------
-# SOX4 against AR activity across entropy quartiles (Fig. 3G)
+# SOX4 against AR activity across entropy quartiles (Fig. 3F)
 # ------------------------------------------------------------
 
 
@@ -244,7 +176,7 @@ res_sox4.to_csv(f"{datadir}/outputs/zaidi_sox4_corr_gsea_result.csv")
 df = adata_cr.obs
 
 # To compare the SOX4-associated gene set activity, we run GSEA also for corr. between gene expression and lineage plasticity
-# compute Shannon entropy for CRPC cells
+# compute Shannon entropy for CRPC cells only
 
 lineage = df[["Luminal", "Basal", "Duct.luminal"]]
 
@@ -282,7 +214,7 @@ to_plot = [res_entr, res_sox4]
 
 
 # ---------------------------------------------
-# GSEA plots (Fig. 3H and Supplementary Fig 4F)
+# GSEA plots (Fig. 3G and Supplementary Fig 4E)
 # ---------------------------------------------
 
 filename = (f"{datadir}/figures/zaidi_gsea_plots_sox4_entropy.pdf")
